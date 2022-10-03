@@ -6,7 +6,7 @@ import ta
 
 # note that annual needs to convert the interval freq to 1y
 class Strategy():
-    def __init__(self, symbol, benchmark, start, end, interval, annual = 252, risk_free = 0, position = None):
+    def __init__(self, symbol, benchmark, start, end, interval = '1d', annual = 252, risk_free = 0, position = None):
         self.symbol = symbol
         self.start = start
         self.end = end
@@ -57,7 +57,7 @@ class Strategy():
     def calculate_close_returns(self, in_df):
         df = in_df.copy()
         df['Returns'] = np.log(df["Close"] / df["Close"].shift(1))
-        base_norm_ret = np.exp(self.df["Returns"].mean()) -1 
+        base_norm_ret = np.exp(df["Returns"].mean()) -1 
         return df, base_norm_ret
 
     # takes in df and outputs a new df with log returns named "target + _returns"
@@ -187,20 +187,23 @@ class Strategy():
 # line_a and line_b must be time series (can use ta package to create)
 # line_a crosses line_b from below to create a long signal
 # line_a crosses line_b from above to create a short signal
-def Cross_Strategy(Strategy):
+# line_a and line_b must be [pd.DataFrame method name, **kwargs]
+def Crossover_Strategy(Strategy):
     def __init__(self, symbol, benchmark, start, end, interval, line_a, line_b,  annual = 252, risk_free = 0):
-        super(Cross_Strategy, self).__init__(symbol, benchmark, start, end, interval, annual, risk_free)
-        self.line_a = line_a
-        self.line_b = line_b
-        self.add_position()
+        super(Crossover_Strategy, self).__init__(symbol, benchmark, start, end, interval, annual, risk_free)
+        self._method_a = line_a[0]
+        self._params_a = line_a[1]
+        self._method_b = line_b[0]
+        self._params_b = line_b[1]
+        self.create_crossover_position()
     
 
     # create crossover positions / signals here 
     def create_crossover_position(self):
-        df = pd.DataFrame()
-        df['Position'] = np.where(self.line_a > self.line_b, 1, -1)
-        df['Signal'] = df['Position'].diff()
-        self.add_position(df['Position'])
+        self.data['line_a'] = getattr(self.data['Close'], self._method_a)(**self._params_a).mean()
+        self.data['line_b'] = getattr(self.data['Close'], self._method_b)(**self._params_b).mean()
+        self.add_position(np.where(self.data['line_a'] > self.data['line_b'], 1, -1 ))
+
 
 
 
